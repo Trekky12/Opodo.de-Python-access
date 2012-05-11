@@ -1,26 +1,46 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 import urllib
 import urllib2
 
 
 class NoResultsException(Exception):
+
     def __init__(self, url):
         self.url = url
 
 
 class Opodo(object):
-    def __init__(self, departureAirportCode, arrivalAirportCode, departureDate):
-        self.params = {'tripType': 'O', 'departureAirportCode': 'BLQ',
-                       'departureDay': '04', 'departureMonth': '201103',
-                       'departureTime': 'ANY', 'arrivalAirportCode': 'DUB',
-                       'directFlight': 'false', 'flexible': 'false',
-                       'numberOfAdults': '1', 'numberOfChildren': '0',
-                       'numberOfInfants': '0', 'cabinType': 'E',
-                       'searchLowCost': 'true', 'includeRailAndFly': 'false'}
+
+    def __init__(
+        self,
+        departureAirportCode,
+        arrivalAirportCode,
+        departureDate,
+        ):
+        self.params = {
+            'tripType': 'O',
+            'departureAirportCode': 'BLQ',
+            'departureDay': '04',
+            'departureMonth': '201103',
+            'departureTime': 'ANY',
+            'arrivalAirportCode': 'DUB',
+            'directFlight': 'false',
+            'flexible': 'false',
+            'numberOfAdults': '1',
+            'numberOfChildren': '0',
+            'numberOfInfants': '0',
+            'cabinType': 'E',
+            'searchLowCost': 'true',
+            'includeRailAndFly': 'false',
+            }
         self.params['departureAirportCode'] = departureAirportCode
         self.params['arrivalAirportCode'] = arrivalAirportCode
         self.params['departureDay'] = '%02d' % departureDate.day
-        self.params['departureMonth'] = '%04d%02d' % (departureDate.year, departureDate.month)
-        self.url = 'http://www.opodo.it/opodo/flights/search?' +  urllib.urlencode(self.params)
+        self.params['departureMonth'] = '%04d%02d' \
+            % (departureDate.year, departureDate.month)
+        self.url = 'http://www.opodo.it/opodo/flights/search?' \
+            + urllib.urlencode(self.params)
         self.url2 = 'http://www.opodo.it/opodo/flights/getPageV2'
 
     def getCookieContent(self):
