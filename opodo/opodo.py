@@ -3,6 +3,7 @@
 import urllib
 import urllib2
 from bs4 import BeautifulSoup
+import re
 
 
 class NoResultsException(Exception):
@@ -94,7 +95,8 @@ class Opodo(object):
 
     def getPrice(self):
         soup = BeautifulSoup(self.html)
-        return soup.find('span',{'class':'price'}).text.encode('utf-8').strip()
+        price =soup.find('span',{'class':'price'}).text.encode('utf-8').strip()
+        return re.sub(r'[^\w|\.|\,]', '', price)
 
 
 if __name__ == '__main__':
