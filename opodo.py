@@ -13,8 +13,8 @@ def datesiterator(start, end):
 
 
 def findFly(departureAirportCode, arrivalAirportCode, departureDate):
-    o = opodo.Opodo(departureAirportCode, arrivalAirportCode,
-                    departureDate)
+    o = opodo.Opodo(departureAirportCode, arrivalAirportCode, departureDate)
+    
     try:
 
         # return (3.14, o.url)
@@ -26,10 +26,11 @@ def findFly(departureAirportCode, arrivalAirportCode, departureDate):
 
 
 if __name__ == '__main__':
-    for d in datesiterator(datetime.date(2012, 7, 2),
-                           datetime.date(2012, 8, 2)):
-        (euros, link) = findFly('BLQ', 'BER', d)
-        print d
-        print euros, 'Euros'
-        print link
-        print '=' * 10
+    for d1 in datesiterator(datetime.date(2015, 3, 1),datetime.date(2015, 3, 3)):
+        for d2 in datesiterator(datetime.date(2015, 3, 18),datetime.date(2015, 3, 21)):
+            for d3 in datesiterator(datetime.date(2015, 3, 27),datetime.date(2015, 3, 31)):    
+              (euros, link) = findFly(['FRA', 'AKL', 'BNE'], ['AKL', 'BNE', 'FRA'], [d1, d2, d3])
+              print d1, d2, d3
+              print euros, 'Euros'
+              print link
+              print '=' * 10
