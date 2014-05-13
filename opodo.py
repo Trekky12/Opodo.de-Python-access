@@ -43,7 +43,7 @@ if __name__ == '__main__':
     for d1 in datesiterator(datetime.date(2015, 3, 1),datetime.date(2015, 3, 3)):
         for d2 in datesiterator(datetime.date(2015, 3, 21),datetime.date(2015, 3, 23)):
             for d3 in datesiterator(datetime.date(2015, 3, 28),datetime.date(2015, 3, 31)):    
-              (resultlist, table) = findFly(['FRA', 'AKL', 'BNE'], ['AKL', 'BNE', 'FRA'], [d1, d2, d3], maxPrice=1400, maxStay = '09:00')
+              (resultlist, table) = findFly(['FRA', 'AKL', 'BNE'], ['AKL', 'BNE', 'FRA'], [d1, d2, d3], maxPrice=1350, maxStay = '09:00')
               tablelist.append(table)
               print d1, d2, d3
               for result in resultlist:

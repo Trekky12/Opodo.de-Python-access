@@ -52,7 +52,7 @@ class Opodo(object):
         arrivalAirportCodes,
         departureDates,
         maxPrice = None,
-        maxStay = '99:99'
+        maxStay = None
         ):
         if isinstance(departureAirportCodes, list) and len(departureAirportCodes) <= 4:
             self.params = {
@@ -83,11 +83,10 @@ class Opodo(object):
             self.url = 'http://www.opodo.de/opodo/buchen/flug/gabelFlug/ergebnis-ueberblick?' \
                 + urllib.urlencode(self.params)
                 
+            self.multi = True
             self.arrivalAirportCodes = arrivalAirportCodes
             self.departureAirportCodes = departureAirportCodes
             self.departureDates = departureDates
-            self.maxPrice = maxPrice
-            self.maxStay = maxStay
             
         elif isinstance(departureAirportCodes, str):
             self.params = {
@@ -109,9 +108,17 @@ class Opodo(object):
                 % (departureDates.year, departureDates.month)
             self.url = 'http://www.opodo.de/opodo/flights/search?' \
                 + urllib.urlencode(self.params)
+            self.multi = False
+            self.arrivalAirportCodes = [arrivalAirportCodes]
+            self.departureAirportCodes = [departureAirportCodes]
+            self.departureDates = [departureDates]
         else:
             raise Exception('Parameter wrong')
+        
         self.url2 = 'http://www.opodo.de/opodo/flights/getPageV2'
+        self.maxPrice = maxPrice
+        self.maxStay = maxStay
+        
 
     def getCookieContent(self):
         res = urllib2.urlopen(self.url)
@@ -137,6 +144,8 @@ class Opodo(object):
         soup = BeautifulSoup(self.html)
         resultlist = []
         
+        maxstay = time.strptime(self.maxStay, '%H:%M') if self.maxStay != None else None
+        
         # Iterate over all results
         for htmlDiv in soup.find_all(id=re.compile('outer-[0-9]*', re.I)):
         
@@ -145,11 +154,11 @@ class Opodo(object):
             price = float(re.sub(r'[^\w|\.]', '', price.replace('.', '').replace(',','.')))
             
             # Filter Max Price
-            if price >= self.maxPrice and self.maxPrice != None:
+            if self.maxPrice != None and price >= self.maxPrice:
                 break;                                
             result.setPrice(price)
             
-            staydurationResult = self.getStayDurations(htmlDiv, time.strptime(self.maxStay, '%H:%M'))
+            staydurationResult = self.getStayDurations(htmlDiv, maxstay)
             
             # Filter StayDuration
             if staydurationResult:
@@ -166,16 +175,20 @@ class Opodo(object):
             result_id = htmlDiv.get('id').split('-')[1]
             result.resultNr = result_id
             
-            flight_div = htmlDiv.find('div',{'id':'inner-%s%s' %(result_id,flight)})
-            # Get only the first result of the flight (the others are only different fly times but the same price and similar stay duration)
-            duration_table_cell = flight_div.find(id='LOrecommendations%s' %(flight)).find('td',{'class':'cell cell03'})
+            if self.multi:
+                # Get only the first result of the flight (the others are only different fly times but the same price and similar stay duration)
+                duration_table_cell = htmlDiv.find('div',{'id':'inner-%s%s' %(result_id,flight)}).find(id='LOrecommendations%s' %(flight)).find('td',{'class':'cell cell03'})
+            else:
+                duration_table_cell = htmlDiv.find('div',{'id':'inner-%s' %(result_id)}).find('td',{'class':'cell cell03'})
+                
             # Get stay location and duration 
             if duration_table_cell.div.text.strip() != 'Direkt':
                 params = re.search('populatePopupDetails\(\'([\w.]*)\',([\d]),\'([\w_]*)\'',  duration_table_cell.div.a.get('onmouseover')).groups()
-                duration, location = self.getStops(params)
-                if duration >= maxStayduration:
-                    return None
-                result.addStop(duration_table_cell.div.text.strip(), location, time.strftime('%H:%M', duration))
+                durations, locations = self.getStops(params)
+                for duration in durations:
+                    if maxStayduration != None and duration >= maxStayduration:
+                        return None
+                result.addStop(duration_table_cell.div.text.strip(), locations, [time.strftime('%H:%M', duration) for duration in durations])
             else:
                 result.addStop(duration_table_cell.div.text.strip(), '' , 0)
         
@@ -186,16 +199,20 @@ class Opodo(object):
         url = 'http://www.opodo.de/opodo/flights/getRolloverDetails?group=%s&bound=%s&leg=%s' %(params[0], params[1],params[2])
         rolloverHtml = self.getHtml(url)
         soup = BeautifulSoup(rolloverHtml)
-        sd_line = soup.find('div',{'class':'sd_boxst'})
+        sd_line = soup.find_all('div',{'class':'sd_boxst'})
+        durations = []
+        locations = []
+        for stops in sd_line:
+            # get stay duration
+            duration = re.findall('[0-9]{2}:[0-9]{2}', stops.div.text)
+            duration_time = time.strptime(duration[0], '%H:%M')
+            durations.append(duration_time)
+            # get stay location
+            sdline_ai = stops.find('div', {'class':'ai'}).text.strip()
+            location = re.findall('^[A-z ]+', sdline_ai)[0].strip()
+            locations.append(location)
         
-        # get stay duration
-        duration = re.findall('[0-9]{2}:[0-9]{2}', sd_line.div.text)
-        duration_time = time.strptime(duration[0], '%H:%M')
-        # get stay location
-        sdline_ai = sd_line.find('div', {'class':'ai'}).text.strip()
-        location = re.findall('^[A-z ]+', sdline_ai)[0].strip()
-        
-        return duration_time, location
+        return durations, locations
         
     def getTable(self, resultlist):
         table = ''
@@ -232,13 +249,13 @@ class Opodo(object):
                 table +=  '<tr>'
                 table +=  '<td>Dauer</td>'
                 for duration in result.durations:
-                    table +=  '<td>%s</td>' %(duration if duration != 0 else '')
+                    table +=  '<td>%s</td>' %(', '.join(duration) if duration != 0 else '')
                 table +=  '</tr>'
                 
                 table +=  '<tr>'
                 table +=  '<td>Ort</td>'
                 for location in result.locations:
-                    table +=  '<td>%s</td>' %(location if location != '' else '')
+                    table +=  '<td>%s</td>' %(', '.join(location) if location != '' else '')
                 table +=  '</tr>'
                             
             table +=  '</tbody></table>'
@@ -250,9 +267,10 @@ class Opodo(object):
 
 if __name__ == '__main__':
     import datetime
-    opodo = Opodo(['FRA', 'AKL', 'BNE'], ['AKL', 'BNE', 'FRA'], [datetime.date(2015, 3, 1),datetime.date(2015, 3, 21), datetime.date(2015, 3, 28),], maxPrice=1500, maxStay='06:00')
+    opodo = Opodo(['FRA', 'AKL', 'BNE'], ['AKL', 'BNE', 'FRA'], [datetime.date(2015, 3, 3),datetime.date(2015, 3, 23), datetime.date(2015, 3, 28),], maxPrice=1350, maxStay='06:00')
     #opodo = Opodo('FRA', 'AKL', datetime.date(2015, 3, 1))
     print opodo.url
     resultlist, table = opodo.search()
-    for result in resultlist:
-        print result.price
+    #for result in resultlist:
+    #    print result
+    print table
